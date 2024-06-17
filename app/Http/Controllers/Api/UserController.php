@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -21,10 +22,13 @@ class UserController extends Controller
         try {
             //Validated
             $validateUser = Validator::make($request->all(), 
-            [
+            [         
+                'avatar' => 'required',
+                'type' => 'required',
+                'open_id' => 'required',
                 'name' => 'required',
-                'email' => 'required|email|unique:users,email',
-                'password' => 'required'
+                'email' => 'required',
+                 'password' => 'required|min:6'
             ]);
 
             if($validateUser->fails()){
@@ -35,16 +39,55 @@ class UserController extends Controller
                 ], 401);
             }
 
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password)
-            ]);
+            //validated will have user field values
+            //we can save in the database
+            $validated = $validateUser->validated();
+            $map = [];
+            //email, phone, google, facebook, apple
+            $map['type'] = $validated['type'];
+            $map['open_id'] = $validated['open_id'];
+
+
+            $user = User::where($map)->first();
+        //wether user has already logged in or not
+        //empty means doestnot existes
+        //theb save the user in database for first time
+        if(empty($user->id)){
+            //this certain user has never been in our database
+            //our job  is to assign the user in the database
+            //this token is user id
+            $validated["token"] = md5(uniqid().rand(10000, 99999));
+            //user first time created
+            $validated['created_at'] = Carbon::now();
+            //encrypt password 
+            $validated['password'] = Hash::make($validated['password']);
+            //returns the id of row after saving
+            $userId = User::insertGetId($validated);
+             //users all the informations
+            $userInfo = User::where('id','=', $userId)->first();
+
+         
+         $accessToken = $userInfo->createToken(uniqid())->plainTextToken;
+
+         $userInfo->access_token = $accessToken;
+         User::where('id', "=", $userId)->update(["access_token"=>$accessToken]);
+
+         return response()->json([
+            'status' => true,
+            'message' => 'User Created Successfully',
+            'data' => $userInfo
+        ], 200);
+        }
+        //user previously has logged in
+        $accessToken = $user->createToken(uniqid())->plainTextToken;
+        $user->access_token = $accessToken;
+        User::where('open_id', "=", $validated['open_id'])->update(["access_token"=>$accessToken]);
+
 
             return response()->json([
                 'status' => true,
-                'message' => 'User Created Successfully',
-                'token' => $user->createToken("API TOKEN")->plainTextToken
+                'message' => 'User logged in Successfully',
+                'token' =>$user  
             ], 200);
 
         } catch (\Throwable $th) {
