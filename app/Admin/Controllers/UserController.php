@@ -32,7 +32,7 @@ class UserController extends AdminController
 
         return $grid;
     }
-
+//just for view
     protected function detail($id)
     {
         $show = new Show(User::findOrFail($id));
@@ -46,7 +46,7 @@ class UserController extends AdminController
 
         return $show;
     }
-
+//it gets called when you create a new form or edit a row or info
     protected function form()
     {
         $form = new Form(new User());
