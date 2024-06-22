@@ -33,7 +33,7 @@ class CourseController extends AdminController
         $show->disableFilter();
         */
 
-        //$grid->feild('updated_at', __('Updated at'));
+        //$grid->feild('updated_at', __('Updated at'));, updated
 
         return $show;
     }
